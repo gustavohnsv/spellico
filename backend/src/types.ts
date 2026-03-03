@@ -1,6 +1,13 @@
+export interface SpellCooldown {
+  spell: string;
+  readyAt: number;
+}
+
 export interface Player {
   id: string;                                          // Socket ID
   nickname: string;                                    // Player's chosen name
+  hp: number;                                          // Player's health points
+  cooldowns: SpellCooldown[];                         // Spell cooldown tracking
 }
 
 export interface Room {

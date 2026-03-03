@@ -1,7 +1,8 @@
 import { Server } from 'socket.io';
 import { log } from './utils/logger.js';
 import { CreateRoomPayload, JoinRoomPayload, Player } from './types.js';
-import { generateRoomCode, createRoom, getRoom, addPlayerToRoom, removePlayerFromRooms } from './rooms.js';
+import { generateRoomCode, createRoom, getRoom, addPlayerToRoom, removePlayerFromRooms, getRoomByPlayerId } from './rooms.js';
+import { getSpellIdByName, SPELL_STATS } from './spells.js';
 
 export const setupSocket = (server: any) => {
   const io = new Server(server, {
@@ -15,7 +16,7 @@ export const setupSocket = (server: any) => {
 
     socket.on('create-room', (payload: CreateRoomPayload) => {
       const code = generateRoomCode();
-      const host: Player = { id: socket.id, nickname: payload.nickname };
+      const host: Player = { id: socket.id, nickname: payload.nickname, hp: 100, cooldowns: [] };
 
       createRoom(code, host, payload.language);
       socket.join(code);
@@ -35,7 +36,7 @@ export const setupSocket = (server: any) => {
         return socket.emit('room-error', { message: 'Room full' });
       }
 
-      const player: Player = { id: socket.id, nickname: payload.nickname };
+      const player: Player = { id: socket.id, nickname: payload.nickname, hp: 100, cooldowns: [] };
       addPlayerToRoom(payload.code, player);
       socket.join(payload.code);
 
@@ -45,9 +46,46 @@ export const setupSocket = (server: any) => {
         io.to(payload.code).emit('room-ready', {
           players: room.players,
           language: room.language,
-        });
+        });                                            // Emit room ready with language
         log(`Room ${payload.code} is ready`);
       }
+    });
+
+    socket.on('cast-spell', (payload: { spell: string }) => {
+      const room = getRoomByPlayerId(socket.id);
+      if (!room) return;
+
+      const spellId = getSpellIdByName(payload.spell, room.language);
+      if (!spellId) return;
+
+      const stats = SPELL_STATS[spellId];
+      const player = room.players.find(p => p.id === socket.id)!;
+      const opponent = room.players.find(p => p.id !== socket.id);
+
+      const now = Date.now();
+      const cooldown = player.cooldowns.find(c => c.spell === spellId);
+      if (cooldown && cooldown.readyAt > now) return;
+
+      if (cooldown) {
+        cooldown.readyAt = now + stats.cooldown;
+      } else {
+        player.cooldowns.push({ spell: spellId, readyAt: now + stats.cooldown });
+      }
+
+      if (stats.damage > 0 && opponent) {
+        opponent.hp = Math.max(0, opponent.hp - stats.damage);
+      }
+
+      if (stats.heal > 0) {
+        player.hp = Math.min(100, player.hp + stats.heal);
+      }
+
+      io.to(room.code).emit('hp-update', {
+        player1HP: room.players[0].hp,
+        player2HP: room.players[1].hp
+      });                                              // Sync health points (Contract format)
+
+      log(`Spell ${spellId} cast by ${player.nickname} in room ${room.code}`);
     });
 
     socket.on('disconnect', () => {

@@ -8,8 +8,8 @@ export default function Waiting() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    socket.on('room-ready', () => {
-      navigate('/arena');
+    socket.on('room-ready', (data) => {
+      navigate('/arena', { state: { language: data.language, players: data.players } });
     });
 
     return () => {

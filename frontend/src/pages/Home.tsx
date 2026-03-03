@@ -15,8 +15,8 @@ export default function Home() {
       navigate(`/waiting/${code}`, { state: { nickname } });
     });
 
-    socket.on('room-ready', () => {
-      navigate('/arena');
+    socket.on('room-ready', (data) => {
+      navigate('/arena', { state: { language: data.language, players: data.players } });
     });
 
     socket.on('room-error', ({ message }) => {
