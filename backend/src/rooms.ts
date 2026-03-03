@@ -20,6 +20,12 @@ export const getRoom = (code: string): Room | undefined => {
   return rooms.get(code);
 };                                                     // Retrieves a room by code
 
+export const getRoomByPlayerId = (playerId: string): Room | undefined => {
+  return Array.from(rooms.values()).find(room =>
+    room.players.some(p => p.id === playerId)
+  );
+};                                                     // Find room containing player ID
+
 export const addPlayerToRoom = (code: string, player: Player): boolean => {
   const room = rooms.get(code);
   if (!room || room.players.length >= 2) return false;
