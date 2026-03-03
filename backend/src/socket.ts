@@ -80,10 +80,28 @@ export const setupSocket = (server: any) => {
         player.hp = Math.min(100, player.hp + stats.heal);
       }
 
+      io.to(room.code).emit('spell-cast', {            // Notify clients of spell cast
+        spellId,                                       // Spell ID
+        casterId: socket.id                            // Caster ID
+      });
+
       io.to(room.code).emit('hp-update', {
         player1HP: room.players[0].hp,
         player2HP: room.players[1].hp
       });                                              // Sync health points (Contract format)
+
+      const winner = room.players.find(p => {          // Check for winner
+        const opp = room.players.find(o => o.id !== p.id); // Get opponent
+        return opp && opp.hp <= 0;                     // Winner found if opponent HP is 0
+      });
+
+      if (winner) {                                    // Game over condition
+        log(`Victory - Player ${winner.nickname}`);    // Required log format
+        io.to(room.code).emit('game-over', {           // Emit game over event
+          winnerId: winner.id,                         // Winner ID
+          winnerName: winner.nickname                  // Winner Name
+        });
+      }
 
       log(`Spell ${spellId} cast by ${player.nickname} in room ${room.code}`);
     });
